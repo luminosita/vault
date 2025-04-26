@@ -28,10 +28,7 @@ Token (will be hidden): <root token>
 #### Add Policies
 
 ```bash
-$ vault policy write admins <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main
-/policies/admins.hcl)
-$ vault policy write terraform ./terraform.hcl
-$ vault policy write secret-admins ./secret-admins.hcl
+$ sh <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/setup.sh)
 ```
 
 vault auth enable userpass
