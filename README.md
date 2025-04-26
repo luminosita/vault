@@ -83,6 +83,28 @@ $ vault kv list secret/
 $ vault kv delete secret/laza
 ```
 
+### AppRole Authentication Method
+
+>**NOTE:** Login as Admin user
+
+```bash
+$ vault auth enable approle
+$ vault policy write jenkins -<<EOF
+# Read-only permission on secrets stored at 'secret/data/mysql/webapp'
+path "secret/data/mysql/webapp" {
+  capabilities = [ "read" ]
+}
+EOF
+$ vault write auth/approle/role/jenkins token_policies="jenkins" \
+    token_ttl=1h token_max_ttl=4h
+```
+
+#### Create Test Data
+
+```bash
+$ vault kv put secret/mysql/webapp db_name="users" username="admin" password="passw0rd"
+```
+
 ### Recreate Root Token
 
 ```bash
