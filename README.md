@@ -46,43 +46,63 @@ $ vault login
 Token (will be hidden): <Root Token>
 ```
 
-#### Add Policies
+#### Add Admin User and Revoke Root Token
 
 ```bash
-$ sh <(curl -L https://github.com/luminosita/vault/raw/refs/heads/main/scripts/setup.sh)
-```
-
-#### Add Admin User
-
-```bash
+$ vault policy write admins <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/policies/admins.hcl)
+$ vault auth enable userpass
 $ vault write auth/userpass/users/admin password=<password> policies=admins
+$ vault token revoke <Root Token>
+$ vault login -method userpass username=admin
 ```
 
 #### Add KV Admin User
 
 ```bash
-$ vault write auth/userpass/users/<username> password=<password> policies=secret-admins
+$ vault policy write kv-admins <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/policies/kv-admins.hcl)
+$ vault write auth/userpass/users/<username> password=<password> policies=kv-admins
+$ vault login -method userpass username=<username>
 ```
 
-#### Revoke Root Token
+### Secrets Engine
+
+#### Enable KV Store (Version 2) 
+
+>**NOTE:** Make sure that the path is covered in `kv-admins` policy
 
 ```bash
-vault token revoke <Root Token>
+$ vault secrets enable -path=secret kv-v2
 ```
 
-vault secrets enable -path=secret kv-v2
+#### Secrets
 
-vault read auth/userpass/users/milosh
+```bash
+$ vault kv put secret/laza pera=mika
+$ vault kv get --format=json secret/laza
+$ vault kv list secret/
+```
 
-As user:
-vault login -method userpass username=milosh
+### Recreate Root Token
 
-vault kv put secret/laza pera=mika
-vault kv get --format=json secret/laza
-vault kv list secret/
+```bash
+$ vault operator generate-root -init
+A One-Time-Password has been generated for you and is shown in the OTP field.
+You will need this value to decode the resulting root token, so keep it safe.
+Nonce         49d030ae-b910-545a-b25b-29a2c7241114
+Started       true
+Progress      0/1
+Complete      false
+OTP           FKOWLuLKGo2N5uaXUCEgjjtOb4
+OTP Length    26
 
-Recreate root token:
+$ vault operator generate-root -otp="FKOWLuLKGo2N5uaXUCEgjjtOb4"
+Operation nonce: 49d030ae-b910-545a-b25b-29a2c7241114
+Unseal Key (will be hidden):
+Nonce            49d030ae-b910-545a-b25b-29a2c7241114
+Started          true
+Progress         1/1
+Complete         true
+Encoded Token    NWUFbxkGFXwdNXY0dBxUb2YsKQoCGwYdMFE
 
-vault operator generate-root -init
-vault operator generate-root -otp="***"
-vault operator generate-root -decode=*** -otp ***
+$ vault operator generate-root -decode=NWUFbxkGFXwdNXY0dBxUb2YsKQoCGwYdMFE -otp FKOWLuLKGo2N5uaXUCEgjjtOb4
+```
