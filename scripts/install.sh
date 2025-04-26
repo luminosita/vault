@@ -49,14 +49,12 @@ apk add --update --virtual .deps --no-cache gnupg libcap-setcap openssl && \
 addgroup -S vault
 adduser -G vault -S -s /bin/sh vault
 
-export VAULT_ADDR="https://$IP:$PORT"
-export VAULT_BINARY=$(which vault)
-export VAULT_CONFIG=/etc/vault.d
-
-vault_config_file="$VAULT_CONFIG/vault.hcl"
+vault_binary=$(which vault)
+vault_config=/etc/vault.d
+vault_config_file="$vault_config/vault.hcl"
 data_folder="/var/lib/vault"
 
-mkdir -p $VAULT_CONFIG
+mkdir -p $vault_config
 
 tee $vault_config_file <<EOF
 api_addr                = "https://$IP:$PORT"
@@ -66,8 +64,8 @@ ui                      = true
 
 listener "tcp" {
     address       = "$IP:$PORT"
-    tls_cert_file = "$VAULT_CONFIG/vault-cert.pem"
-    tls_key_file  = "$VAULT_CONFIG/vault-key.pem"
+    tls_cert_file = "$vault_config/vault-cert.pem"
+    tls_key_file  = "$vault_config/vault-key.pem"
 }
 
 backend "raft" {
@@ -77,12 +75,12 @@ backend "raft" {
 EOF
 
 openssl req -x509 -newkey rsa:4096 -sha256 -days 365 \
-      -nodes -keyout $VAULT_CONFIG/vault-key.pem -out $VAULT_CONFIG/vault-cert.pem \
+      -nodes -keyout $vault_config/vault-key.pem -out $vault_config/vault-cert.pem \
       -subj "/CN=vault.lan" \
       -addext "subjectAltName=DNS:vault.lan,IP:$IP"
 
-chown vault:vault $VAULT_CONFIG/vault-key.pem
-chown vault:vault $VAULT_CONFIG/vault-cert.pem
+chown vault:vault $vault_config/vault-key.pem
+chown vault:vault $vault_config/vault-cert.pem
 chown vault:vault $vault_config_file
 
 tee /etc/init.d/vault <<EOF
@@ -90,7 +88,7 @@ tee /etc/init.d/vault <<EOF
 
 name=\$RC_SVCNAME
 cfgfile="$vault_config_file"
-command="$VAULT_BINARY"
+command="$vault_binary"
 command_args="server -config=$vault_config_file"
 command_user="vault"
 command_background=true
