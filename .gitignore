@@ -1,0 +1,14 @@
+.terraform*
+terraform*
+*.tfplan
+*.auto.tfvars
+*.tfstate
+*.bak
+
+tmp/
+
+output
+
+*.tfstate
+
+**/.DS_Store
