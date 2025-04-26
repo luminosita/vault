@@ -3,7 +3,7 @@
 #### Installation
 
 ```bash
-$ sudo su -c "sh <(curl -L https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) -n Noa -v 1.19.2" root
+$ sudo su -c "sh <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) -n Noa -v 1.19.2" root
 ```
 
 It will install Vault version 1.19.2 and create `raft` data node `Noa`
@@ -49,7 +49,7 @@ Token (will be hidden): <Root Token>
 #### Add Admin User and Revoke Root Token
 
 ```bash
-$ vault policy write admins <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/policies/admins.hcl)
+$ vault policy write admins <(curl -L https://github.com/luminosita/vault/raw/refs/heads/main/policies/admins.hcl)
 $ vault auth enable userpass
 $ vault write auth/userpass/users/admin password=<password> policies=admins
 $ vault token revoke <Root Token>
@@ -59,7 +59,7 @@ $ vault login -method userpass username=admin
 #### Add KV Admin User
 
 ```bash
-$ vault policy write kv-admins <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/policies/kv-admins.hcl)
+$ vault policy write kv-admins <(curl -L https://github.com/luminosita/vault/raw/refs/heads/main/policies/kv-admins.hcl)
 $ vault write auth/userpass/users/<username> password=<password> policies=kv-admins
 $ vault login -method userpass username=<username>
 ```
@@ -78,8 +78,9 @@ $ vault secrets enable -path=secret kv-v2
 
 ```bash
 $ vault kv put secret/laza pera=mika
-$ vault kv get --format=json secret/laza
+$ vault kv get --format=json secret/laza | jq '.data.data'
 $ vault kv list secret/
+$ vault kv delete secret/laza
 ```
 
 ### Recreate Root Token
