@@ -32,7 +32,7 @@ CPORT=8201
 PRODUCT=vault
 VERSION=$version
 
-apk add --update libcap-setcap openssl
+apk add --update libcap-setcap openssl curl
 apk add --update --virtual .deps --no-cache gnupg libcap-setcap openssl && \
     cd /tmp && \
     wget https://releases.hashicorp.com/${PRODUCT}/${VERSION}/${PRODUCT}_${VERSION}_linux_amd64.zip && \
