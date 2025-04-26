@@ -1,13 +1,19 @@
 ### Install Vault in Alpine LXC
 
-#### Installation script
+#### Installation
 
+```bash
+$ sudo su -c "sh <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) -n Noa -v 1.19.2" root
+```
 
+It will install Vault version 1.19.2 and create `raft` data node `Noa`
 
+#### Initial Setup
 
-As root:
-vault operator init
-vault operator unseal
+```bash
+$ vault operator init
+$ vault operator unseal
+```
 
 vault policy write admins ./vault-admins.hcl
 vault policy write secret-admins ./secret-admins.hcl

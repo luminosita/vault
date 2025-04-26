@@ -78,8 +78,8 @@ EOF
 
 openssl req -x509 -newkey rsa:4096 -sha256 -days 365 \
       -nodes -keyout $VAULT_CONFIG/vault-key.pem -out $VAULT_CONFIG/vault-cert.pem \
-      -subj "/CN=localhost" \
-      -addext "subjectAltName=DNS:localhost,IP:$IP"
+      -subj "/CN=vault.lan" \
+      -addext "subjectAltName=DNS:vault.lan,IP:$IP"
 
 chown vault:vault $VAULT_CONFIG/vault-key.pem
 chown vault:vault $VAULT_CONFIG/vault-cert.pem
