@@ -31,11 +31,12 @@ function usage {
 	# Display Help
 	echo "Add description of the script functions here."
 	echo
-	echo "Syntax: $script_name create|destroy [-v|n|t]"
+	echo "Syntax: $script_name create|destroy [-v|n|a|t]"
 	echo "Create options:"
 	echo "  -v     Vault version."
 	echo "  -n     Node name."
-	echo "  -t     Transit server url."
+	echo "  -a     Transit server url."
+	echo "  -t     Transit server token."
 	echo "Destroy options: none"
 	echo
 }
@@ -103,7 +104,7 @@ storage "inmem" {}
 EOF
 }
 
-function create_config {
+function create_cluster_bootstrap_config {
     printf "\n%s" \
         "Creating main config ($vault_config_file)" \
         ""
@@ -128,14 +129,41 @@ storage "raft" {
 }
 
 seal "transit" {
-   address            = "$cluster_addr"
+   address            = "$transit_addr"
    # token is read from VAULT_TOKEN env
-   # token              = ""
+   token              = "$transit_token"
    disable_renewal    = "false"
 
    // Key configuration
    key_name           = "unseal_key"
    mount_path         = "transit/"
+}
+EOF
+
+}
+
+function create_config {
+    printf "\n%s" \
+        "Creating main config ($vault_config_file)" \
+        ""
+    sleep 2 # Added for human readability
+
+    tee $vault_config_file 1> /dev/null <<EOF
+api_addr                = "https://$ip:$port"
+cluster_addr  		    = "https://$ip:$cport"
+disable_mlock           = true
+ui                      = true
+
+listener "tcp" {
+    address             = "$ip:$port"
+    cluster_address     = "$ip:$cport"
+    tls_cert_file       = "$vault_config/vault-cert.pem"
+    tls_key_file        = "$vault_config/vault-key.pem"
+}
+
+storage "raft" {
+    path        = "$data_folder"
+    node_id     = "$node_id"
 }
 EOF
 
@@ -335,7 +363,7 @@ esac
 
 shift 1
 
-while getopts ":n:v:t:" o; do
+while getopts ":n:v:a:t:" o; do
     case "${o}" in
         n)
             node_id=${OPTARG}
@@ -343,8 +371,11 @@ while getopts ":n:v:t:" o; do
         v)
             version=${OPTARG}
             ;;
-        t)
+        a)
             transit_addr=${OPTARG}
+            ;;
+        t)
+            transit_token=${OPTARG}
             ;;
         *)
             usage
@@ -363,20 +394,20 @@ if [ $command == "create" ]; then
 		return
 	fi
 
-	install_deps "$@"
-	create_user "$@"
+	# install_deps "$@"
+	# create_user "$@"
 
-	mkdir -p $vault_config
+	# mkdir -p $vault_config
 
-	mkdir -p $data_folder
-	chown $user:$group $data_folder
+	# mkdir -p $data_folder
+	# chown $user:$group $data_folder
 
 	rm -f $vault_config_file
 
-	if [ -z "${node_id}" ] || [ -z "${transit_addr}" ]; then
+	if [ -z "${node_id}" ] || [ -z "${transit_addr}" ] || [ -z "${transit_token}" ]; then
 		create_transit_config "$@"
 	else
-		create_config "$@"
+		create_cluster_bootstrap_config "$@"
 		create_certs "$@"
 	fi
 
@@ -392,7 +423,7 @@ if [ $command == "create" ]; then
 
 	sleep 5 # Waiting for Vault server to start
 
-	if [ -z "${node_id}" ] || [ -z "${transit_addr}" ]; then
+	if [ -z "${node_id}" ] || [ -z "${transit_addr}" ] || [ -z "${transit_token}" ]; then
 		setup_transit_server "$@"
 	else
 		setup_server "$@"

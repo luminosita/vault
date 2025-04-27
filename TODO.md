@@ -2,3 +2,4 @@
 - [ ] Raft Cluster (https://developer.hashicorp.com/vault/tutorials/raft/raft-storage)
 
 - [ ] Recreate SSHD keys
+- [ ] Token and seal files in /tmp
