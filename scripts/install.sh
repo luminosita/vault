@@ -62,12 +62,10 @@ function install_deps {
 }
 
 function regenerate_sshd_keys {
-    rm /etc/ssh/ssh_host_dsa_key
-    rm /etc/ssh/ssh_host_rsa_key
-    rm /etc/ssh/ssh_host_ecdsa_key
-    rm /etc/ssh/ssh_host_ed25519_key
+	if [ -f /etc/ssh/ssh_host_rsa_key ]; then
+    	rm -f /etc/ssh/ssh_host_*
+	fi   
 
-    ssh-keygen -q -N "" -t dsa -f /etc/ssh/ssh_host_dsa_key
     ssh-keygen -q -N "" -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key
     ssh-keygen -q -N "" -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key
     ssh-keygen -q -N "" -t ed25519 -f /etc/ssh/ssh_host_ed25519_key
@@ -102,7 +100,7 @@ function create_config {
 ui                      = true
 log_level               = "trace"
 api_addr                = "https://$ip:$port"
-cluster_addr  		= "https://$ip:$cport"
+cluster_addr  			= "https://$ip:$cport"
 disable_mlock           = true
 disable_cache           = true
 cluster_name            = "Belgrade"
@@ -113,12 +111,7 @@ listener "tcp" {
    tls_cert_file        = "$vault_config/certs/vault.crt"
    tls_key_file         = "$vault_config/certs/vault.key"
    tls_client_ca_file   = "$vault_config/certs/vault_ca.pem"
-   tls_cipher_suites    = "TLS_TEST_128_GCM_SHA256,
-                        TLS_TEST_128_GCM_SHA256,
-                        TLS_TEST20_POLY1305,
-                        TLS_TEST_256_GCM_SHA384,
-                        TLS_TEST20_POLY1305,
-                        TLS_TEST_256_GCM_SHA384"
+#   tls_cipher_suites    = "TLS_TEST_128_GCM_SHA256,TLS_TEST_128_GCM_SHA256,TLS_TEST20_POLY1305,TLS_TEST_256_GCM_SHA384,TLS_TEST20_POLY1305,TLS_TEST_256_GCM_SHA384"
 }
 
 storage "raft" {
