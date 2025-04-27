@@ -195,7 +195,7 @@ function start_service {
     setcap cap_ipc_lock=+ep $(readlink -f $(which vault))
 
     rc-update add vault
-#    rc-service vault start
+    rc-service vault start
 }
 
 function stop_service {
