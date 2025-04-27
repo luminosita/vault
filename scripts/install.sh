@@ -303,13 +303,13 @@ if [ -z "$version" ]; then
     return
 fi
 
+install_deps "$@"
+create_user "$@"
+
 mkdir -p $vault_config
 
 mkdir -p $data_folder
 chown $user:$group $data_folder
-
-install_deps "$@"
-create_user "$@"
 
 rm -f $vault_config_file
 
