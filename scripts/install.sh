@@ -344,7 +344,7 @@ while getopts ":n:v:t:" o; do
             version=${OPTARG}
             ;;
         t)
-            transir_addr=${OPTARG}
+            transit_addr=${OPTARG}
             ;;
         *)
             usage
