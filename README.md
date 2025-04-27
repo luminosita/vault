@@ -1,12 +1,20 @@
 ### Install Vault in Alpine LXC
 
-#### Installation
+#### Transit Vault Server
 
 ```bash
-$ sudo su -c "sh <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh)  -v 1.19.2 -n Noa -t https://172.16.1.20:8201" root
+$ sudo su -c "sh <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) create -v 1.19.2" root
 ```
 
-It will install Vault version 1.19.2 and create `raft` data node `Noa`
+It will install transit Vault server version 1.19.2 and create `inmem` storage. Server is used as a transit server for cluster joining
+
+#### Vault Server
+
+```bash
+$ sudo su -c "sh <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) create -v 1.19.2 -n Noa -t https://172.16.1.20:8201" root
+```
+
+It will install clustered Vault server version 1.19.2 and create `raft` data node `Noa`
 
 #### Initial Setup
 

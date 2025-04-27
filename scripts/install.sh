@@ -363,35 +363,35 @@ if [ $command == "create" ]; then
 		return
 	fi
 
-#	install_deps "$@"
-#	create_user "$@"
-#
-#	mkdir -p $vault_config
-#
-#	mkdir -p $data_folder
-#	chown $user:$group $data_folder
-#
-#	rm -f $vault_config_file
-#
-#	if [ -z "${node_id}" ] || [ -z "${transit_addr}" ]; then
-#		create_transit_config "$@"
-#	else
-#		create_config "$@"
-#		create_certs "$@"
-#	fi
-#
-#	chown $user:$group $vault_config_file
-#
-#	rm -f $service_file
-#
-#	create_service "$@"
-#
-#	chmod 755 $service_file
-#
-#	start_service "$@"
-#
-#	sleep 5 # Waiting for Vault server to start
-#
+	install_deps "$@"
+	create_user "$@"
+
+	mkdir -p $vault_config
+
+	mkdir -p $data_folder
+	chown $user:$group $data_folder
+
+	rm -f $vault_config_file
+
+	if [ -z "${node_id}" ] || [ -z "${transit_addr}" ]; then
+		create_transit_config "$@"
+	else
+		create_config "$@"
+		create_certs "$@"
+	fi
+
+	chown $user:$group $vault_config_file
+
+	rm -f $service_file
+
+	create_service "$@"
+
+	chmod 755 $service_file
+
+	start_service "$@"
+
+	sleep 5 # Waiting for Vault server to start
+
 	if [ -z "${node_id}" ] || [ -z "${transit_addr}" ]; then
 		setup_transit_server "$@"
 	else
