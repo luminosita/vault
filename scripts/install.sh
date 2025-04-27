@@ -49,9 +49,6 @@ function install_deps {
         mv /tmp/$product /usr/local/bin/$product && \
         rm -f /tmp/$product_$version_linux_amd64.zip $product_$version_SHA256SUMS $version/$product_$version_SHA256SUMS.sig && \
         apk del .deps
-
-    #On Linux, to give the Vault executable the ability to use the mlock syscall without running the process as root
-    setcap cap_ipc_lock=+ep $(readlink -f $(which vault))
 }
 
 function create_user {
@@ -168,6 +165,9 @@ function start_service {
         "Starting system service" \
         ""
     sleep 2 # Added for human readability
+
+    #On Linux, to give the Vault executable the ability to use the mlock syscall without running the process as root
+    setcap cap_ipc_lock=+ep $(readlink -f $(which vault))
 
     rc-update add vault
     rc-service vault start
