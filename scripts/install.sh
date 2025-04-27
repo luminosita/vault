@@ -61,6 +61,18 @@ function install_deps {
         apk del .deps
 }
 
+function regenerate_sshd_keys {
+    rm /etc/ssh/ssh_host_dsa_key
+    rm /etc/ssh/ssh_host_rsa_key
+    rm /etc/ssh/ssh_host_ecdsa_key
+    rm /etc/ssh/ssh_host_ed25519_key
+
+    ssh-keygen -q -N "" -t dsa -f /etc/ssh/ssh_host_dsa_key
+    ssh-keygen -q -N "" -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key
+    ssh-keygen -q -N "" -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key
+    ssh-keygen -q -N "" -t ed25519 -f /etc/ssh/ssh_host_ed25519_key
+}
+
 function create_peers {
 	for peer in ${peer_addrs[@]};
 	do
@@ -297,7 +309,9 @@ if [ $command == "create" ]; then
 
 	chown $user:$group $vault_config_file
 
-	rm -f $service_file
+    regenerate_sshd_keys
+	
+    rm -f $service_file
 
 	create_service "$@"
 
