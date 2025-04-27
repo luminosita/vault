@@ -29,60 +29,33 @@ fi
 
 function usage {
 	# Display Help
-	echo "Add description of the script functions here."
+	echo "Install script for Vault Cluster"
 	echo
-	echo "Syntax: $script_name create|destroy [-v|n|a|t]"
+	echo "Syntax: $script_name create|destroy [-v|n|p|u]"
 	echo "Create options:"
 	echo "  -v     Vault version."
 	echo "  -n     Node name."
-	echo "  -a     Transit server url."
-	echo "  -t     Transit server token."
+    echo "  -p     Peer URLs."
+    echo "  -u     Unseal Key."
 	echo "Destroy options: none"
 	echo
 }
 
 function install_deps {
     printf "\n%s" \
-        "Installing dependencies packages" \
-        ""
-    sleep 2 # Added for human readability
-
-    apk add --update libcap-setcap openssl curl jq
-
-    printf "\n%s" \
         "Installing product: $product, version: $version" \
         ""
     apk add --update --virtual .deps --no-cache gnupg libcap-setcap openssl && \
-        cd /tmp && \
         wget https://releases.hashicorp.com/${product}/${version}/${product}_${version}_linux_amd64.zip && \
         wget https://releases.hashicorp.com/${product}/${version}/${product}_${version}_SHA256SUMS && \
         wget https://releases.hashicorp.com/${product}/${version}/${product}_${version}_SHA256SUMS.sig && \
         wget -qO- https://www.hashicorp.com/.well-known/pgp-key.txt | gpg --import && \
         gpg --verify ${product}_${version}_SHA256SUMS.sig ${product}_${version}_SHA256SUMS && \
         grep ${product}_${version}_linux_amd64.zip ${product}_${version}_SHA256SUMS | sha256sum -c && \
-        unzip /tmp/${product}_${version}_linux_amd64.zip -d /tmp && \
+        unzip ${product}_${version}_linux_amd64.zip -d /tmp && \
         mv /tmp/${product} /usr/local/bin/${product} && \
-        rm -f /tmp/${product}_${version}_linux_amd64.zip ${product}_${version}_SHA256SUMS ${version}/${product}_${version}_SHA256SUMS.sig && \
+        rm -f ${product}_${version}_linux_amd64.zip ${product}_${version}_SHA256SUMS ${version}/${product}_${version}_SHA256SUMS.sig && \
         apk del .deps
-}
-
-function create_user {
-    printf "\n%s" \
-        "Creating user ($user:$group)" \
-        ""
-    sleep 2 # Added for human readability
-
-    addgroup -S $group
-    adduser -G $group -S -s /bin/sh $user
-}
-
-function delete_user {
-    printf "\n%s" \
-        "Deleting user ($user:$group)" \
-        ""
-    sleep 2 # Added for human readability
-
-    deluser $user
 }
 
 function create_config {
@@ -91,40 +64,50 @@ function create_config {
         ""
     sleep 2 # Added for human readability
 
-    tee $vault_config_file 1> /dev/null <<EOF
+        tee $vault_config_file 1> /dev/null <<EOF
+ui                      = true
+log_level               = "trace"
 api_addr                = "https://$ip:$port"
 cluster_addr  		    = "https://$ip:$cport"
 disable_mlock           = true
-ui                      = true
+disable_cache           = true
+cluster_name            = "Belgrade"
 
 listener "tcp" {
-    address             = "$ip:$port"
-    cluster_address     = "$ip:$cport"
-    tls_cert_file       = "$vault_config/vault-cert.pem"
-    tls_key_file        = "$vault_config/vault-key.pem"
+   address              = "0.0.0.0:8200"
+   tls_disable          = false
+   tls_cert_file        = "$vault_config/certs/vault.crt"
+   tls_key_file         = "$vault_config/certs/vault.key"
+   tls_client_ca_file   = "$vault_config/certs/vault_ca.pem"
+   tls_cipher_suites    = "TLS_TEST_128_GCM_SHA256,
+                        TLS_TEST_128_GCM_SHA256,
+                        TLS_TEST20_POLY1305,
+                        TLS_TEST_256_GCM_SHA384,
+                        TLS_TEST20_POLY1305,
+                        TLS_TEST_256_GCM_SHA384"
 }
 
 storage "raft" {
     path        = "$data_folder"
     node_id     = "$node_id"
-}
 EOF
 
+    for peer_addr in $peer_addrs;
+    do
+        tee -a $vault_config_file 1> /dev/null <<EOF
+    retry_join 
+    {
+        leader_api_addr             = "$peer_addr"
+        leader_ca_cert_file         = "$vault_config/certs/vault_ca.pem"
+        leader_client_cert_file     = "$vault_config/certs/vault.crt"
+        leader_client_key_file      = "$vault_config/certs/vault.key"
+    }
+EOF    
+    done
+
+    tee -a $vault_config_file 1> /dev/null <<EOF
 }
-
-function create_certs {
-    printf "\n%s" \
-        "Creating certificates" \
-        ""
-    sleep 2 # Added for human readability
-
-    openssl req -x509 -newkey rsa:4096 -sha256 -days 365 \
-        -nodes -keyout $vault_config/vault-key.pem -out $vault_config/vault-cert.pem \
-        -subj "/CN=localhost" \
-        -addext "subjectAltName=DNS:localhost,IP:$ip"
-
-    chown $user:$group $vault_config/vault-key.pem
-    chown $user:$group $vault_config/vault-cert.pem
+EOF
 }
 
 function create_service {
@@ -180,7 +163,7 @@ function stop_service {
 }
 
 function vault_srv {
-    (export VAULT_ADDR="http://$ip:$port" && vault "$@")
+    (export VAULT_ADDR="https://$ip:$port" && vault "$@")
 }
 
 function setup_server {
@@ -196,54 +179,49 @@ function setup_server {
 	    return
     fi
 
-    # Initialize the second node and capture its recovery keys and root token
-    INIT_RESPONSE=$(vault_srv operator init -format=json -recovery-shares 1 -recovery-threshold 1)
+    if [ -z ${unseal_key:+x} ]; then
+        # Initialize the second node and capture its recovery keys and root token
+        INIT_RESPONSE=$(vault_srv operator init -format=json  -key-shares=1 -key-threshold=1)
 
-    RECOVERY_KEY=$(echo "$INIT_RESPONSE" | jq -r .recovery_keys_b64[0])
-    VAULT_TOKEN=$(echo "$INIT_RESPONSE" | jq -r .root_token)
+        UNSEAL_KEY=$(echo "$INIT_RESPONSE" | jq -r .unseal_keys_b64[0])
+        VAULT_TOKEN=$(echo "$INIT_RESPONSE" | jq -r .root_token)
 
-    echo "$RECOVERY_KEY" > recovery_key-vault
-    echo "$VAULT_TOKEN" > root_token-vault
+        vault_srv operator unseal "$UNSEAL_KEY"
 
-    printf "\n%s" \
-    	"Recovery key: $RECOVERY_KEY" \
-    	"Root token: $VAULT_TOKEN" \
-    	""
+        echo "$UNSEAL_KEY" > unseal_key-vault
 
-    printf "\n%s" \
-    	"waiting to finish post-unseal setup (15 seconds)" \
-    	""
+        printf "\n%s" \
+            "Unseal key: $UNSEAL_KEY" \
+            "Root token: $VAULT_TOKEN" \
+            ""
 
-    sleep 15
+        vault_srv login "$VAULT_TOKEN"
 
-    printf "\n%s" \
-    	"logging in and enabling the KV secrets engine" \
-    	""
-    sleep 2 # Added for human readability
+        printf "\n%s" \
+            "creating admins policy, enabling userpass authentication and revoking root token" \
+            ""
+        sleep 2 # Added for human readability
 
-    vault_srv login "$VAULT_TOKEN"
+        while true;
+        do
+            read -p "New Admin Password: " admin_password
+            read -p "Confirm Admin Password: " confirm_admin_password
 
-    printf "\n%s" \
-    	"creating admins policy, enabling userpass authentication and revoking root token" \
-    	""
-    sleep 2 # Added for human readability
+            if [[ $admin_password == $confirm_admin_password ]]; then
+                break
+            else
+                echo "Passwords do not match ! Try again ..."
+            fi
+        done
 
-    while true;
-    do
-        read -p "New Admin Password: " admin_password
-        read -p "Confirm Admin Password: " confirm_admin_password
-
-        if [[ $admin_password == $confirm_admin_password ]]; then
-            break
-        else
-            echo "Passwords do not match ! Try again ..."
-        fi
-    done
-
-    vault_srv policy write admins <(curl -L https://github.com/luminosita/vault/raw/refs/heads/main/policies/admins.hcl)
-    vault_srv auth enable userpass
-    vault_srv write auth/userpass/users/admin password=$admin_password policies=admins
-    vault_srv token revoke "$VAULT_TOKEN"
+        vault_srv policy write admins <(curl -L https://github.com/luminosita/vault/raw/refs/heads/main/policies/admins.hcl)
+        vault_srv auth enable userpass
+        vault_srv write auth/userpass/users/admin password=$admin_password policies=admins
+        vault_srv token revoke "$VAULT_TOKEN"
+    else
+        UNSEAL_KEY=$unseal_key
+        vault_srv operator unseal "$UNSEAL_KEY"
+    fi
 }
 
 if [ -z "$1" ]; then usage; fi
@@ -263,19 +241,25 @@ esac
 
 shift 1
 
-while getopts ":n:v:a:t:" o; do
+peer_addrs = ()
+
+while getopts ":n:v:p:u" o; do
     case "${o}" in
         n)
+            echo "Node ID: ${OPTARG}"
             node_id=${OPTARG}
             ;;
         v)
+            echo "Version: ${OPTARG}"
             version=${OPTARG}
             ;;
-        a)
-            transit_addr=${OPTARG}
+        p)
+            echo "Peer URLs: ${OPTARG}"
+            peer_addrs+=${OPTARG}
             ;;
-        t)
-            transit_token=${OPTARG}
+        u)
+            echo "Unseal Key: ${OPTARG}"
+            unseal_key=${OPTARG}
             ;;
         *)
             usage
@@ -288,14 +272,13 @@ done
 shift $((OPTIND-1))
 
 if [ $command == "create" ]; then
-	if [ -z "$version" ]; then
+	if [ -z "$version" ] || [ -z "$node_id" ] || [ -z "$peer_addrs" ]; then
 		usage
 
 		return
 	fi
 
 	install_deps "$@"
-	create_user "$@"
 
 	mkdir -p $vault_config
 
@@ -304,12 +287,7 @@ if [ $command == "create" ]; then
 
 	rm -f $vault_config_file
 
-	if [ -z "${node_id}" ] || [ -z "${transit_addr}" ] || [ -z "${transit_token}" ]; then
-		create_transit_config "$@"
-	else
-		create_config "$@"
-		create_certs "$@"
-	fi
+    create_config "$@"
 
 	chown $user:$group $vault_config_file
 
@@ -323,16 +301,11 @@ if [ $command == "create" ]; then
 
 	sleep 5 # Waiting for Vault server to start
 
-	if [ -z "${node_id}" ] || [ -z "${transit_addr}" ] || [ -z "${transit_token}" ]; then
-		setup_transit_server "$@"
-	else
-		setup_server "$@"
-	fi
+    setup_server "$@"
 else
 	rm -f $vault_config_file
 	rm -f $service_file
 	rm -f $pidfile
 
-	delete_user "$@"
 	stop_service "$@"
 fi
