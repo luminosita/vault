@@ -3,7 +3,7 @@
 #### Installation
 
 ```bash
-$ sudo su -c "sh <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) -n Noa -v 1.19.2" root
+$ sudo su -c "sh <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) -n Noa -v 1.19.2 -c https://172.16.1.20:8201" root
 ```
 
 It will install Vault version 1.19.2 and create `raft` data node `Noa`

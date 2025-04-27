@@ -60,7 +60,7 @@ mkdir -p $vault_config
 
 tee $vault_config_file <<EOF
 api_addr                = "https://$IP:$PORT"
-cluster_addr  		    = $cluster_addr
+cluster_addr  		    = "$cluster_addr"
 disable_mlock           = true
 ui                      = true
 
