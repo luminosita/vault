@@ -85,63 +85,6 @@ function delete_user {
     deluser $user
 }
 
-function create_transit_config {
-    printf "\n%s" \
-        "Creating transit config ($vault_config_file)" \
-        ""
-    sleep 2 # Added for human readability
-
-    tee $vault_config_file 1> /dev/null <<EOF
-disable_mlock           = true
-ui                      = true
-
-listener "tcp" {
-    address             = "$ip:$port"
-    tls_disable = true
-}
-
-storage "inmem" {}
-EOF
-}
-
-function create_cluster_bootstrap_config {
-    printf "\n%s" \
-        "Creating main config ($vault_config_file)" \
-        ""
-    sleep 2 # Added for human readability
-
-    tee $vault_config_file 1> /dev/null <<EOF
-api_addr                = "https://$ip:$port"
-cluster_addr  		    = "https://$ip:$cport"
-disable_mlock           = true
-ui                      = true
-
-listener "tcp" {
-    address             = "$ip:$port"
-    cluster_address     = "$ip:$cport"
-    tls_cert_file       = "$vault_config/vault-cert.pem"
-    tls_key_file        = "$vault_config/vault-key.pem"
-}
-
-storage "raft" {
-    path        = "$data_folder"
-    node_id     = "$node_id"
-}
-
-seal "transit" {
-   address            = "$transit_addr"
-   # token is read from VAULT_TOKEN env
-   token              = "$transit_token"
-   disable_renewal    = "false"
-
-   // Key configuration
-   key_name           = "unseal_key"
-   mount_path         = "transit/"
-}
-EOF
-
-}
-
 function create_config {
     printf "\n%s" \
         "Creating main config ($vault_config_file)" \
@@ -238,49 +181,6 @@ function stop_service {
 
 function vault_srv {
     (export VAULT_ADDR="http://$ip:$port" && vault "$@")
-}
-
-function setup_transit_server {
-    printf "\n%s" \
-    	"initializing transit server and capturing the unseal key and root token" \
-    	""
-    sleep 2 # Added for human readability
-
-    if ! [ -f $pidfile ]; then
-    	printf "\n%s" \
-    		"Vault transit server is down, exiting " \
-    		""
-	    return
-    fi
-
-    INIT_RESPONSE=$(vault_srv operator init -format=json -key-shares 1 -key-threshold 1)
-
-    UNSEAL_KEY=$(echo "$INIT_RESPONSE" | jq -r .unseal_keys_b64[0])
-    VAULT_TOKEN=$(echo "$INIT_RESPONSE" | jq -r .root_token)
-
-    echo "$UNSEAL_KEY" > unseal_key-vault
-    echo "$VAULT_TOKEN" > root_token-vault
-
-    printf "\n%s" \
-        "Unseal key: $UNSEAL_KEY" \
-        "Root token: $VAULT_TOKEN" \
-        ""
-
-    printf "\n%s" \
-    	"unsealing and logging in" \
-    	""
-    sleep 2 # Added for human readability
-
-    vault_srv operator unseal "$UNSEAL_KEY"
-    vault_srv login "$VAULT_TOKEN"
-
-    printf "\n%s" \
-    	"enabling the transit secret engine and creating a key to auto-unseal vault cluster" \
-    	""
-    sleep 2 # Added for human readability
-
-    vault_srv secrets enable transit
-    vault_srv write -f transit/keys/unseal_key
 }
 
 function setup_server {
@@ -394,20 +294,20 @@ if [ $command == "create" ]; then
 		return
 	fi
 
-	# install_deps "$@"
-	# create_user "$@"
+	install_deps "$@"
+	create_user "$@"
 
-	# mkdir -p $vault_config
+	mkdir -p $vault_config
 
-	# mkdir -p $data_folder
-	# chown $user:$group $data_folder
+	mkdir -p $data_folder
+	chown $user:$group $data_folder
 
 	rm -f $vault_config_file
 
 	if [ -z "${node_id}" ] || [ -z "${transit_addr}" ] || [ -z "${transit_token}" ]; then
 		create_transit_config "$@"
 	else
-		create_cluster_bootstrap_config "$@"
+		create_config "$@"
 		create_certs "$@"
 	fi
 
