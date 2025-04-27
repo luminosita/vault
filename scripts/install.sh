@@ -22,6 +22,9 @@ data_folder="/var/lib/vault"
 service_file="/etc/init.d/vault"
 pidfile="/run/vault/vault.pid"
 
+peers=""
+declare -A peers_addrs
+
 if [ "$os_name" != "darwin" ] && [ "$os_name" != "linux" ]; then
   >&2 echo "Sorry, this script supports only Linux or macOS operating systems."
   exit 1
@@ -58,17 +61,36 @@ function install_deps {
         apk del .deps
 }
 
+function create_peers {
+	for peer in ${peer_addrs[@]};
+	do
+		peers+=$(cat <<EOF
+    retry_join {
+        leader_api_addr             = "$peer"
+        leader_ca_cert_file         = "$vault_config/certs/vault_ca.pem"
+        leader_client_cert_file     = "$vault_config/certs/vault.crt"
+        leader_client_key_file      = "$vault_config/certs/vault.key"
+    }
+EOF
+		)
+
+		peers+=$'\n'
+	done
+}
+
 function create_config {
     printf "\n%s" \
         "Creating main config ($vault_config_file)" \
         ""
     sleep 2 # Added for human readability
 
-        tee $vault_config_file 1> /dev/null <<EOF
+    create_peers "$@"
+
+    tee $vault_config_file  <<EOF
 ui                      = true
 log_level               = "trace"
 api_addr                = "https://$ip:$port"
-cluster_addr  		    = "https://$ip:$cport"
+cluster_addr  		= "https://$ip:$cport"
 disable_mlock           = true
 disable_cache           = true
 cluster_name            = "Belgrade"
@@ -90,22 +112,8 @@ listener "tcp" {
 storage "raft" {
     path        = "$data_folder"
     node_id     = "$node_id"
-EOF
 
-    for peer_addr in $peer_addrs;
-    do
-        tee -a $vault_config_file 1> /dev/null <<EOF
-    retry_join 
-    {
-        leader_api_addr             = "$peer_addr"
-        leader_ca_cert_file         = "$vault_config/certs/vault_ca.pem"
-        leader_client_cert_file     = "$vault_config/certs/vault.crt"
-        leader_client_key_file      = "$vault_config/certs/vault.key"
-    }
-EOF    
-    done
-
-    tee -a $vault_config_file 1> /dev/null <<EOF
+$peers
 }
 EOF
 }
@@ -241,8 +249,6 @@ esac
 
 shift 1
 
-peer_addrs = ()
-
 while getopts ":n:v:p:u" o; do
     case "${o}" in
         n)
@@ -255,7 +261,7 @@ while getopts ":n:v:p:u" o; do
             ;;
         p)
             echo "Peer URLs: ${OPTARG}"
-            peer_addrs+=${OPTARG}
+	        peer_addrs+=(${OPTARG})
             ;;
         u)
             echo "Unseal Key: ${OPTARG}"
