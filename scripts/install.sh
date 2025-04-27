@@ -1,13 +1,16 @@
 #!/bin/bash
-usage() { echo "Usage: $0 -n node_id -v version";  echo "Example: $0 -n Noa -v 1.19.2" 1>&2; return; }
+usage() { echo "Usage: $0 -n node_id -v version -c cluster_addr";  echo "Example: $0 -n Noa -v 1.19.2 -c https://172.16.1.2:8201" 1>&2; return; }
 
-while getopts ":n:v:" o; do
+while getopts ":n:v:c:" o; do
     case "${o}" in
         n)
             node_id=${OPTARG}
             ;;
         v)
             version=${OPTARG}
+            ;;
+        c)
+            cluster_addr=${OPTARG}
             ;;
         *)
             usage
@@ -18,7 +21,7 @@ while getopts ":n:v:" o; do
 done
 shift $((OPTIND-1))
 
-if [ -z "${node_id}" ] || [ -z "${version}" ]; then
+if [ -z "${node_id}" ] || [ -z "${version}" ] || [ -z "${cluster_addr}" ]; then
     usage
 
     return
@@ -27,7 +30,6 @@ fi
 IP=`ip a show dev eth0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*'`
 
 PORT=8200
-CPORT=8201
 
 PRODUCT=vault
 VERSION=$version
@@ -58,7 +60,7 @@ mkdir -p $vault_config
 
 tee $vault_config_file <<EOF
 api_addr                = "https://$IP:$PORT"
-cluster_addr  		= "https://$IP:$CPORT"
+cluster_addr  		    = $cluster_addr
 disable_mlock           = true
 ui                      = true
 
