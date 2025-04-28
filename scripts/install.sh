@@ -34,12 +34,16 @@ function usage {
 	# Display Help
 	echo "Install script for Vault Cluster"
 	echo
-	echo "Syntax: $script_name create|setup|dev|destroy [-n|p|u]"
+	echo "Syntax: $script_name create|setup|destroy [-n|p|c|u]"
 	echo "Create options:"
 	echo "  -n     Node name."
     echo "  -p     Peer URLs."
+    echo "  -c     Cluster Name."
+	echo "Setup options: "
+	echo "  -n     Node name."
+    echo "  -p     Peer URLs."
+    echo "  -c     Cluster Name."
     echo "  -u     Unseal Key."
-	echo "Setup options: none"
 	echo "Dev options: none"
 	echo "Destroy options: none"
 	echo "ENV vars: "
@@ -79,7 +83,7 @@ function regenerate_sshd_keys {
     ssh-keygen -q -N "" -t ed25519 -f /etc/ssh/ssh_host_ed25519_key
 }
 
-function create_peers {
+function create_tls_peers {
 	for peer in ${peer_addrs[@]};
 	do
 		peers+=$(cat <<EOF
@@ -96,13 +100,27 @@ EOF
 	done
 }
 
-function create_config {
+function create_non_tls_peers {
+	for peer in ${peer_addrs[@]};
+	do
+		peers+=$(cat <<EOF
+    retry_join {
+        leader_api_addr             = "$peer"
+    }
+EOF
+		)
+
+		peers+=$'\n'
+	done
+}
+
+function create_tls_config {
     printf "\n%s" \
         "Creating main config ($vault_config_file)" \
         ""
     sleep 2 # Added for human readability
 
-    create_peers "$@"
+    create_tls_peers "$@"
 
     tee $vault_config_file  <<EOF
 ui                      = true
@@ -111,7 +129,7 @@ api_addr                = "https://$ip:$port"
 cluster_addr  			= "https://$ip:$cport"
 disable_mlock           = true
 disable_cache           = true
-cluster_name            = "Belgrade"
+cluster_name            = "$cluster_name"
 
 listener "tcp" {
    address              = "0.0.0.0:8200"
@@ -120,6 +138,37 @@ listener "tcp" {
    tls_key_file         = "$vault_config/certs/vault-node.key"
    tls_client_ca_file   = "$vault_config/certs/vault.cert.pem"
 #   tls_cipher_suites    = "TLS_TEST_128_GCM_SHA256,TLS_TEST_128_GCM_SHA256,TLS_TEST20_POLY1305,TLS_TEST_256_GCM_SHA384,TLS_TEST20_POLY1305,TLS_TEST_256_GCM_SHA384"
+}
+
+storage "raft" {
+    path        = "$data_folder"
+    node_id     = "$node_id"
+
+$peers
+}
+EOF
+}
+
+function create_non_tls_config {
+    printf "\n%s" \
+        "Creating main config ($vault_config_file)" \
+        ""
+    sleep 2 # Added for human readability
+
+    create_non_tls_peers "$@"
+
+    tee $vault_config_file  <<EOF
+ui                      = true
+log_level               = "info"
+api_addr                = "http://$ip:$port"
+cluster_addr  			= "http://$ip:$cport"
+disable_mlock           = true
+disable_cache           = true
+cluster_name            = "$cluster_name"
+
+listener "tcp" {
+   address              = "0.0.0.0:8200"
+   tls_disable          = true
 }
 
 storage "raft" {
@@ -201,7 +250,6 @@ function setup_server {
     fi
 
     if [ -z ${unseal_key:+x} ]; then
-        # Initialize the second node and capture its recovery keys and root token
         INIT_RESPONSE=$(vault_srv operator init -format=json  -key-shares=1 -key-threshold=1)
 
         UNSEAL_KEY=$(echo "$INIT_RESPONSE" | jq -r .unseal_keys_b64[0])
@@ -210,40 +258,43 @@ function setup_server {
         vault_srv operator unseal "$UNSEAL_KEY"
 
         echo "$UNSEAL_KEY" > unseal_key-vault
+        echo "$VAULT_TOKEN" > root_token-vault
 
         printf "\n%s" \
             "Unseal key: $UNSEAL_KEY" \
             "Root token: $VAULT_TOKEN" \
             ""
-
-        vault_srv login "$VAULT_TOKEN"
-
-        printf "\n%s" \
-            "creating admins policy, enabling userpass authentication and revoking root token" \
-            ""
-        sleep 2 # Added for human readability
-
-        while true;
-        do
-            read -p "New Admin Password: " admin_password
-            read -p "Confirm Admin Password: " confirm_admin_password
-
-            if [[ $admin_password == $confirm_admin_password ]]; then
-                break
-            else
-                echo "Passwords do not match ! Try again ..."
-            fi
-        done
-
-        vault_srv policy write admins <(curl -L https://github.com/luminosita/vault/raw/refs/heads/main/policies/admin.hcl)
-        vault_srv auth enable userpass
-        vault_srv write auth/userpass/users/admin password=$admin_password policies=admins
-        vault_srv token revoke "$VAULT_TOKEN"
     else
         UNSEAL_KEY=$unseal_key
         vault_srv operator unseal "$UNSEAL_KEY"
     fi
 }
+
+# function setup_admin {
+#     vault_srv login "$VAULT_TOKEN"
+
+#     printf "\n%s" \
+#         "creating admins policy, enabling userpass authentication and revoking root token" \
+#         ""
+#     sleep 2 # Added for human readability
+
+#     while true;
+#     do
+#         read -p "New Admin Password: " admin_password
+#         read -p "Confirm Admin Password: " confirm_admin_password
+
+#         if [[ $admin_password == $confirm_admin_password ]]; then
+#             break
+#         else
+#             echo "Passwords do not match ! Try again ..."
+#         fi
+#     done
+
+#     vault_srv policy write admins <(curl -L https://github.com/luminosita/vault/raw/refs/heads/main/policies/admin.hcl)
+#     vault_srv auth enable userpass
+#     vault_srv write auth/userpass/users/admin password=$admin_password policies=admins
+#     vault_srv token revoke "$VAULT_TOKEN"    
+# }
 
 if [ -z "$1" ]; then usage; fi
 
@@ -251,7 +302,7 @@ command=$1
 
 shift 1
 
-while getopts ":n:p:u" o; do
+while getopts ":n:p:c:u" o; do
     case "${o}" in
         n)
             echo "Node ID: ${OPTARG}"
@@ -260,6 +311,10 @@ while getopts ":n:p:u" o; do
         p)
             echo "Peer URLs: ${OPTARG}"
 	        peer_addrs+=(${OPTARG})
+            ;;
+        c)
+            echo "Cluster Name: ${OPTARG}"
+	        cluster_name=(${OPTARG})
             ;;
         u)
             echo "Unseal Key: ${OPTARG}"
@@ -286,7 +341,7 @@ if [ $command == "create" ]; then
 	install_deps "vault" $vault_version
     install_deps "terraform" $terraform_version
 
-	if [ -z "$node_id" ] || [ -z "$peer_addrs" ]; then
+	if [ -z "$node_id" ] || [ -z "$cluster_name" ] || [ -z "$peer_addrs" ]; then
 		usage
 
 		exit 1
@@ -299,7 +354,7 @@ if [ $command == "create" ]; then
 
 	rm -f $vault_config_file
 
-    create_config "$@"
+    create_non_tls_config "$@"
 
 	chown $user:$group $vault_config_file
 
@@ -328,6 +383,22 @@ elif [ $command == "dev" ]; then
 
     exit 1
 elif [ $command == "setup" ]; then
+	if [ -z "$node_id" ] || [ -z "$cluster_name" ] || [ -z "$peer_addrs" ]; then
+		usage
+
+		exit 1
+	fi
+
+    #read PKI certificates from Vault
+
+	stop_service "$@"
+
+	rm -f $vault_config_file
+
+    create_tls_config "$@"
+
+	chown $user:$group $vault_config_file
+
     setup_server "$@"
 elif [ $command == "destroy" ]; then
 	rm -f $vault_config_file
