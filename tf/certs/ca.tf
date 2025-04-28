@@ -1,50 +1,46 @@
-resource "vault_mount" "pki" {
-   path        = "pki"
+locals {
+  ca = var.ca["root"]
+}
+
+resource "vault_mount" "pki_ca" {
+   path        = "pki_ca"
    type        = "pki"
-   description = "This is an example PKI mount"
+   description = local.ca.description
 
    default_lease_ttl_seconds = 86400
    max_lease_ttl_seconds     = 315360000
 }
 
-resource "vault_pki_secret_backend_root_cert" "root_2023" {
-   backend     = vault_mount.pki.path
+resource "vault_pki_secret_backend_root_cert" "ca" {
+   backend     = vault_mount.pki_ca.path
    type        = "internal"
-   common_name = "example.com"
+   common_name = local.ca.common_name
    ttl         = 315360000
-   issuer_name = "root-2023"
+   issuer_name = local.ca.issuer_name
 }
 
-output "vault_pki_secret_backend_root_cert_root_2023" {
-  value = vault_pki_secret_backend_root_cert.root_2023.certificate
-}
-
-resource "local_file" "root_2023_cert" {
-  content  = vault_pki_secret_backend_root_cert.root_2023.certificate
-  filename = "root_2023_ca.crt"
-}
-
-resource "vault_pki_secret_backend_issuer" "root_2023" {
-   backend                        = vault_mount.pki.path
-   issuer_ref                     = vault_pki_secret_backend_root_cert.root_2023.issuer_id
-   issuer_name                    = vault_pki_secret_backend_root_cert.root_2023.issuer_name
+resource "vault_pki_secret_backend_issuer" "ca" {
+   backend                        = vault_mount.pki_ca.path
+   issuer_ref                     = vault_pki_secret_backend_root_cert.ca.issuer_id
+   issuer_name                    = vault_pki_secret_backend_root_cert.ca.issuer_name
    revocation_signature_algorithm = "SHA256WithRSA"
 }
 
-resource "vault_pki_secret_backend_role" "role" {
-   backend          = vault_mount.pki.path
-   name             = "2023-servers"
+resource "vault_pki_secret_backend_role" "ca_vault" {
+   backend          = vault_mount.pki_ca.path
+   name             = local.ca.role_name
    ttl              = 86400
    allow_ip_sans    = true
    key_type         = "rsa"
    key_bits         = 4096
-   allowed_domains  = ["example.com", "my.domain"]
+   allowed_domains  = local.ca.allowed_domains
    allow_subdomains = true
    allow_any_name   = true
 }
 
+#FIXME: What are these URLS?
 resource "vault_pki_secret_backend_config_urls" "config-urls" {
-   backend = vault_mount.pki.path
+   backend = vault_mount.pki_ca.path
    issuing_certificates    = ["http://localhost:8200/v1/pki/ca"]
    crl_distribution_points = ["http://localhost:8200/v1/pki/crl"]
 }
