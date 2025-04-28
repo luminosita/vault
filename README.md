@@ -12,7 +12,9 @@ $ sudo su -c "bash <(wget -O - https://github.com/luminosita/vault/raw/refs/head
 $ sudo su -c "TERRAFORM_VERSION=1.11.3 VAULT_VERSION=1.19.2 bash <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) dev" root
 ```
 
-#### Vault Server
+#### Vault Servers
+
+For each cluster node
 
 ```bash
 $ sudo su -c "bash <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) create -n Noa -p https://172.16.20.12:8200 -p https://172.16.20.13:8200" root
@@ -20,38 +22,27 @@ $ sudo su -c "bash <(wget -O - https://github.com/luminosita/vault/raw/refs/head
 
 It will install clustered Vault server and create `raft` data node `Noa`
 
-#### Initial Setup
+#### Unseal Servers
 
 ```bash
-$ export VAULT_ADDR="https://$(ip a show dev eth0 | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*'):8200"
-$ export VAULT_SKIP_VERIFY=true
-$ vault operator init -key-shares=1 -key-threshold=1
-Unseal Key 1: xxxxxxxxx
-
-Initial Root Token: xxxxxxxxx
-
-Vault initialized with 1 key shares and a key threshold of 1. Please securely
-distribute the key shares printed above. When the Vault is re-sealed,
-restarted, or stopped, you must supply at least 1 of these keys to unseal it
-before it can start servicing requests.
-
-Vault does not store the generated root key. Without at least 1 keys to
-reconstruct the root key, Vault will remain permanently sealed!
-
-It is possible to generate new unseal keys, provided you have a quorum of
-existing unseal keys shares. See "vault operator rekey" for more information.
+$ sudo su -c "bash <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) setup" root
 ```
 
->**NOTE:** Store securely `Root Token` and `Unseal Key(s)`
-
-#### Unseal Vault
+### Terraform
 
 ```bash
-$ vault operator unseal
-Unseal Key (will be hidden): <Unseal Key 1>
+$ export VAULT_CACERT=
+$ export VAULT_ADDR=
+$ export VAULT_TOKEN=
+$ make init
+$ vault token revoke <Root Token>
 ```
 
-#### Login
+
+
+
+
+
 
 ```bash
 $ vault login
