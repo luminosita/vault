@@ -15,6 +15,15 @@ resource "vault_pki_secret_backend_root_cert" "root_2023" {
    issuer_name = "root-2023"
 }
 
+output "vault_pki_secret_backend_root_cert_root_2023" {
+  value = vault_pki_secret_backend_root_cert.root_2023.certificate
+}
+
+resource "local_file" "root_2023_cert" {
+  content  = vault_pki_secret_backend_root_cert.root_2023.certificate
+  filename = "root_2023_ca.crt"
+}
+
 resource "vault_pki_secret_backend_issuer" "root_2023" {
    backend                        = vault_mount.pki.path
    issuer_ref                     = vault_pki_secret_backend_root_cert.root_2023.issuer_id

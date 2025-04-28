@@ -10,6 +10,6 @@ terraform {
 }
 
 provider "vault" {
-  address = var.vault.address
+  address = var.vault.endpoint
   token   = var.vault.token
 }
