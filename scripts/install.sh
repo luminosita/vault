@@ -183,7 +183,7 @@ function stop_service {
 }
 
 function vault_srv {
-    (export VAULT_ADDR="https://$ip:$port" && vault "$@")
+    ( export VAULT_ADDR="https://$ip:$port" && export VAULT_CACERT="$vault_config/certs/vault-node.crt" && vault "$@" )
 }
 
 function setup_server {
