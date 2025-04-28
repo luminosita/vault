@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Copyright (c) luminosita
 
 set -e
@@ -34,12 +34,14 @@ function usage {
 	# Display Help
 	echo "Install script for Vault Cluster"
 	echo
-	echo "Syntax: $script_name create|destroy [-v|n|p|u]"
+	echo "Syntax: $script_name create|dev|destroy [-v|n|p|u]"
 	echo "Create options:"
 	echo "  -v     Vault version."
 	echo "  -n     Node name."
     echo "  -p     Peer URLs."
     echo "  -u     Unseal Key."
+	echo "Dev options:"
+	echo "  -v     Vault version."
 	echo "Destroy options: none"
 	echo
 }
@@ -243,6 +245,9 @@ case "$1" in
 	create)
 	    command="create"
 	    ;;
+	dev)
+	    command="dev"
+	    ;;
 	destroy)
 	    command="destroy"
 	    ;;
@@ -282,14 +287,32 @@ done
 
 shift $((OPTIND-1))
 
-if [ $command == "create" ]; then
-	if [ -z "$version" ] || [ -z "$node_id" ] || [ -z "$peer_addrs" ]; then
+if [ $command == "create" ] || [ $command == "dev" ]; then
+	if [ $command == "create" ] && ([ -z "$version" ] || [ -z "$node_id" ] || [ -z "$peer_addrs" ]); then
+		usage
+
+		return
+	fi
+
+	if [ $command == "dev" ] && [ -z "$version" ]; then
 		usage
 
 		return
 	fi
 
 	install_deps "$@"
+
+	if [ $command == "dev" ]; then
+        echo " "
+        echo " "
+		echo "Vault installed. Run server: "
+        echo " "
+        echo "$ vault server -dev -dev-root-token-id root &"
+        echo "$ export VAULT_ADDR=http://127.0.0.1:8200"
+        echo "$ export VAULT_TOKEN=root"
+
+		exit
+	fi
 
 	mkdir -p $vault_config
 
