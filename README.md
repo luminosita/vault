@@ -3,8 +3,10 @@
 #### Vault Server
 
 ```bash
-$ sudo su -c "bash <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) create -v 1.19.2 -n Noa -p https://172.16.20.12:8200 -p https://172.16.20.13:8200" root
+$ sudo su -c "bash <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) create -n Noa -p https://172.16.20.12:8200 -p https://172.16.20.13:8200" root
 ```
+
+sudo TERRAFORM_VERSION=1.9.5 bash install.sh dev
 
 It will install clustered Vault server version 1.19.2 and create `raft` data node `Noa`
 

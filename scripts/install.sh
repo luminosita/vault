@@ -34,32 +34,37 @@ function usage {
 	# Display Help
 	echo "Install script for Vault Cluster"
 	echo
-	echo "Syntax: $script_name create|dev|destroy [-v|n|p|u]"
+	echo "Syntax: $script_name create|dev|destroy [-n|p|u]"
 	echo "Create options:"
-	echo "  -v     Vault version."
 	echo "  -n     Node name."
     echo "  -p     Peer URLs."
     echo "  -u     Unseal Key."
-	echo "Dev options:"
-	echo "  -v     Vault version."
+	echo "Dev options: none"
 	echo "Destroy options: none"
+	echo "ENV vars: "
+	echo "  VAULT_VERSION           Vault version to be installed."
+    echo "  TERRAFORM_VERSION       Terraform version to be installed."
 	echo
 }
 
-function install_deps {
+install_deps() {
+    local _product=$1
+    local _version=$2
+
     printf "\n%s" \
         "Installing product: $product, version: $version" \
         ""
     apk add --update --virtual .deps --no-cache gnupg libcap-setcap openssl && \
-        wget https://releases.hashicorp.com/${product}/${version}/${product}_${version}_linux_amd64.zip && \
-        wget https://releases.hashicorp.com/${product}/${version}/${product}_${version}_SHA256SUMS && \
-        wget https://releases.hashicorp.com/${product}/${version}/${product}_${version}_SHA256SUMS.sig && \
+        wget https://releases.hashicorp.com/${_product}/${_version}/${_product}_${_version}_linux_amd64.zip && \
+        wget https://releases.hashicorp.com/${_product}/${_version}/${_product}_${_version}_SHA256SUMS && \
+        wget https://releases.hashicorp.com/${_product}/${_version}/${_product}_${_version}_SHA256SUMS.sig && \
         wget -qO- https://www.hashicorp.com/.well-known/pgp-key.txt | gpg --import && \
-        gpg --verify ${product}_${version}_SHA256SUMS.sig ${product}_${version}_SHA256SUMS && \
-        grep ${product}_${version}_linux_amd64.zip ${product}_${version}_SHA256SUMS | sha256sum -c && \
-        unzip ${product}_${version}_linux_amd64.zip -d /tmp && \
-        mv /tmp/${product} /usr/local/bin/${product} && \
-        rm -f ${product}_${version}_linux_amd64.zip ${product}_${version}_SHA256SUMS ${version}/${product}_${version}_SHA256SUMS.sig && \
+        gpg --verify ${_product}_${_version}_SHA256SUMS.sig ${_product}_${_version}_SHA256SUMS && \
+        grep ${_product}_${_version}_linux_amd64.zip ${_product}_${_version}_SHA256SUMS | sha256sum -c && \
+        unzip ${_product}_${_version}_linux_amd64.zip -d /tmp && \
+        mv /tmp/${_product} /usr/local/bin/${_product} && \
+        rm -f ${_product}_${_version}_linux_amd64.zip ${_product}_${_version}_SHA256SUMS ${_product}_${_version}_SHA256SUMS.sig && \
+        rm -f /tmp/LICENSE.txt && \
         apk del .deps
 }
 
@@ -259,15 +264,11 @@ esac
 
 shift 1
 
-while getopts ":n:v:p:u" o; do
+while getopts ":n:p:u" o; do
     case "${o}" in
         n)
             echo "Node ID: ${OPTARG}"
             node_id=${OPTARG}
-            ;;
-        v)
-            echo "Version: ${OPTARG}"
-            version=${OPTARG}
             ;;
         p)
             echo "Peer URLs: ${OPTARG}"
@@ -280,27 +281,23 @@ while getopts ":n:v:p:u" o; do
         *)
             usage
 
-            return
+            exit 1
             ;;
     esac
 done
 
 shift $((OPTIND-1))
 
-if [ $command == "create" ] || [ $command == "dev" ]; then
-	if [ $command == "create" ] && ([ -z "$version" ] || [ -z "$node_id" ] || [ -z "$peer_addrs" ]); then
-		usage
+vault_version=${VAULT_VERSION:-"1.19.2"}
+terraform_version=${TERRAFORM_VERSION:-"1.11.3"}
 
-		return
-	fi
+echo "Vault version: $vault_version"
+echo "Terraform version: $terraform_version"
+sleep 2 # Added for human readability
 
-	if [ $command == "dev" ] && [ -z "$version" ]; then
-		usage
-
-		return
-	fi
-
-	install_deps "$@"
+if [ $command != "destroy" ]; then
+	install_deps "vault" $vault_version
+    install_deps "terraform" $terraform_version
 
 	if [ $command == "dev" ]; then
         echo " "
@@ -311,7 +308,13 @@ if [ $command == "create" ] || [ $command == "dev" ]; then
         echo "$ export VAULT_ADDR=http://127.0.0.1:8200"
         echo "$ export VAULT_TOKEN=root"
 
-		exit
+		exit 1
+	fi
+
+	if [ $command == "create" ] && ([ -z "$node_id" ] || [ -z "$peer_addrs" ]); then
+		usage
+
+		exit 1
 	fi
 
 	mkdir -p $vault_config
