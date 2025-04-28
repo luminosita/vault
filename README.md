@@ -17,7 +17,7 @@ $ sudo su -c "TERRAFORM_VERSION=1.11.3 VAULT_VERSION=1.19.2 bash <(wget -O - htt
 For each cluster node
 
 ```bash
-$ sudo su -c "bash <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) create -n Noa -p https://172.16.20.12:8200 -p https://172.16.20.13:8200" root
+$ sudo su -c "bash <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) create -n Noa -c Belgrade -p 172.16.20.11 -p 172.16.20.13" root
 ```
 
 It will install clustered Vault server and create `raft` data node `Noa`
@@ -25,7 +25,7 @@ It will install clustered Vault server and create `raft` data node `Noa`
 #### Unseal Servers
 
 ```bash
-$ sudo su -c "bash <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) setup" root
+$ sudo su -c "bash <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) setup -n Noa -c Belgrade -p 172.16.20.11 -p 172.16.20.13" root
 ```
 
 ### Terraform

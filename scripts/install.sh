@@ -34,12 +34,12 @@ function usage {
 	# Display Help
 	echo "Install script for Vault Cluster"
 	echo
-	echo "Syntax: $script_name create|setup|destroy [-n|p|c|u]"
+	echo "Syntax: $script_name create|unseal|dev|destroy [-n|p|c|u]"
 	echo "Create options:"
 	echo "  -n     Node name."
     echo "  -p     Peer URLs."
     echo "  -c     Cluster Name."
-	echo "Setup options: "
+	echo "Unseal options: "
 	echo "  -n     Node name."
     echo "  -p     Peer URLs."
     echo "  -c     Cluster Name."
@@ -88,7 +88,7 @@ function create_tls_peers {
 	do
 		peers+=$(cat <<EOF
     retry_join {
-        leader_api_addr             = "$peer"
+        leader_api_addr             = "https://$peer:$port"
         leader_ca_cert_file         = "$vault_config/certs/vault.cert.pem"
         leader_client_cert_file     = "$vault_config/certs/vault-node.crt"
         leader_client_key_file      = "$vault_config/certs/vault-node.key"
@@ -105,7 +105,7 @@ function create_non_tls_peers {
 	do
 		peers+=$(cat <<EOF
     retry_join {
-        leader_api_addr             = "$peer"
+        leader_api_addr             = "http://$peer:$port"
     }
 EOF
 		)
@@ -132,7 +132,7 @@ disable_cache           = true
 cluster_name            = "$cluster_name"
 
 listener "tcp" {
-   address              = "0.0.0.0:8200"
+   address              = "0.0.0.0:$port"
    tls_disable          = false
    tls_cert_file        = "$vault_config/certs/vault-node.crt"
    tls_key_file         = "$vault_config/certs/vault-node.key"
@@ -236,7 +236,7 @@ function vault_srv {
     ( export VAULT_ADDR="https://$ip:$port" && export VAULT_CACERT="$vault_config/certs/vault-node.crt" && vault "$@" )
 }
 
-function setup_server {
+function unseal_server {
     printf "\n%s" \
         "initializing server and capturing the recovery key and root token" \
         ""
@@ -382,7 +382,7 @@ elif [ $command == "dev" ]; then
     echo "$ export VAULT_TOKEN=root"
 
     exit 1
-elif [ $command == "setup" ]; then
+elif [ $command == "unseal" ]; then
 	if [ -z "$node_id" ] || [ -z "$cluster_name" ] || [ -z "$peer_addrs" ]; then
 		usage
 
@@ -399,7 +399,7 @@ elif [ $command == "setup" ]; then
 
 	chown $user:$group $vault_config_file
 
-    setup_server "$@"
+    unseal_server "$@"
 elif [ $command == "destroy" ]; then
 	rm -f $vault_config_file
 	rm -f $service_file
