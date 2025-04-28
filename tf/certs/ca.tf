@@ -8,14 +8,14 @@ resource "vault_mount" "pki_ca" {
    description = local.ca.description
 
    default_lease_ttl_seconds = 86400
-   max_lease_ttl_seconds     = 315360000
+   max_lease_ttl_seconds     = local.ca.ttl
 }
 
 resource "vault_pki_secret_backend_root_cert" "ca" {
    backend     = vault_mount.pki_ca.path
    type        = "internal"
    common_name = local.ca.common_name
-   ttl         = 315360000
+   ttl         = local.ca.ttl
    issuer_name = local.ca.issuer_name
 }
 
