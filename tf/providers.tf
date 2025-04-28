@@ -10,6 +10,7 @@ terraform {
 }
 
 provider "vault" {
-  address = var.vault.endpoint
-  token   = var.vault.token
+  address         = var.vault.endpoint
+  token           = var.vault.token
+  skip_tls_verify = true   # FIXME: replace with proper certificate
 }

@@ -6,5 +6,6 @@
 - [ ] ACME, Cert-manager, Vault integration
 - [ ] Dynamic Secrets 
 - [ ] Kubernete Secrets Injector 
+- [ ] AppRole Authentication
 
 

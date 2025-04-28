@@ -7,7 +7,8 @@ variable "vault" {
 }
 
 variable "admin_username" {
-  type = optional(string, "admin")
+  type    = string
+  default = "admin"
 }
 
 variable "admin_password" {
