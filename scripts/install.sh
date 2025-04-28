@@ -234,7 +234,7 @@ function setup_server {
             fi
         done
 
-        vault_srv policy write admins <(curl -L https://github.com/luminosita/vault/raw/refs/heads/main/policies/admins.hcl)
+        vault_srv policy write admins <(curl -L https://github.com/luminosita/vault/raw/refs/heads/main/policies/admin.hcl)
         vault_srv auth enable userpass
         vault_srv write auth/userpass/users/admin password=$admin_password policies=admins
         vault_srv token revoke "$VAULT_TOKEN"
