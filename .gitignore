@@ -1,8 +1,9 @@
-./.terraform*
-./terraform*
-./*.tfplan
+.terraform/**
+**/.terraform/**
+.terraform.lock.hcl
+terraform.tfstate*
+
 *.auto.tfvars
-./*.tfstate
 *.bak
 
 tmp/

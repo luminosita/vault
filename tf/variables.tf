@@ -5,3 +5,11 @@ variable "vault" {
     endpoint = optional(string)
   })
 }
+
+variable "admin_username" {
+  type = optional(string, "admin")
+}
+
+variable "admin_password" {
+  type = string
+}

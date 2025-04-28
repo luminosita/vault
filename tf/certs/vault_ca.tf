@@ -3,7 +3,7 @@ locals {
 }
 
 resource "vault_mount" "pki_vault" {
-  path        = "pki_int"
+  path        = "pki_vault"
   type        = "pki"
   description = local.vault.description
 

@@ -18,7 +18,7 @@ product=vault
 
 vault_config=/etc/vault.d
 vault_config_file="$vault_config/vault.hcl"
-data_folder="/var/lib/vault"
+vault_data_folder="/var/lib/vault"
 service_file="/etc/init.d/vault"
 pidfile="/run/vault/vault.pid"
 
@@ -34,21 +34,19 @@ function usage {
 	# Display Help
 	echo "Install script for Vault Cluster"
 	echo
-	echo "Syntax: $script_name create|unseal|dev|destroy [-n|p|c|u]"
+	echo "Syntax: $script_name create|tls|dev|destroy [-n|p|c]"
 	echo "Create options:"
 	echo "  -n     Node name."
     echo "  -p     Peer URLs."
     echo "  -c     Cluster Name."
-	echo "Unseal options: "
+	echo "Tls options: "
 	echo "  -n     Node name."
     echo "  -p     Peer URLs."
     echo "  -c     Cluster Name."
-    echo "  -u     Unseal Key."
 	echo "Dev options: none"
 	echo "Destroy options: none"
 	echo "ENV vars: "
 	echo "  VAULT_VERSION           Vault version to be installed."
-    echo "  TERRAFORM_VERSION       Terraform version to be installed."
 	echo
 }
 
@@ -141,7 +139,7 @@ listener "tcp" {
 }
 
 storage "raft" {
-    path        = "$data_folder"
+    path        = "$vault_data_folder"
     node_id     = "$node_id"
 
 $peers
@@ -172,7 +170,7 @@ listener "tcp" {
 }
 
 storage "raft" {
-    path        = "$data_folder"
+    path        = "$vault_data_folder"
     node_id     = "$node_id"
 
 $peers
@@ -232,43 +230,43 @@ function stop_service {
 	rc-update del vault
 }
 
-function vault_srv {
-    ( export VAULT_ADDR="https://$ip:$port" && export VAULT_CACERT="$vault_config/certs/vault-node.crt" && vault "$@" )
-}
+# function vault_srv {
+#     ( export VAULT_ADDR="https://$ip:$port" && export VAULT_CACERT="$vault_config/certs/vault-node.crt" && vault "$@" )
+# }
 
-function unseal_server {
-    printf "\n%s" \
-        "initializing server and capturing the recovery key and root token" \
-        ""
-    sleep 2 # Added for human readability
+# function unseal_server {
+#     printf "\n%s" \
+#         "initializing server and capturing the recovery key and root token" \
+#         ""
+#     sleep 2 # Added for human readability
 
-    if ! [ -f $pidfile ]; then
-    	printf "\n%s" \
-    		"Vault server is down, exiting " \
-    		""
-	    return
-    fi
+#     if ! [ -f $pidfile ]; then
+#     	printf "\n%s" \
+#     		"Vault server is down, exiting " \
+#     		""
+# 	    return
+#     fi
 
-    if [ -z ${unseal_key:+x} ]; then
-        INIT_RESPONSE=$(vault_srv operator init -format=json  -key-shares=1 -key-threshold=1)
+#     if [ -z ${unseal_key:+x} ]; then
+#         INIT_RESPONSE=$(vault_srv operator init -format=json  -key-shares=1 -key-threshold=1)
 
-        UNSEAL_KEY=$(echo "$INIT_RESPONSE" | jq -r .unseal_keys_b64[0])
-        VAULT_TOKEN=$(echo "$INIT_RESPONSE" | jq -r .root_token)
+#         UNSEAL_KEY=$(echo "$INIT_RESPONSE" | jq -r .unseal_keys_b64[0])
+#         VAULT_TOKEN=$(echo "$INIT_RESPONSE" | jq -r .root_token)
 
-        vault_srv operator unseal "$UNSEAL_KEY"
+#         vault_srv operator unseal "$UNSEAL_KEY"
 
-        echo "$UNSEAL_KEY" > unseal_key-vault
-        echo "$VAULT_TOKEN" > root_token-vault
+#         echo "$UNSEAL_KEY" > unseal_key-vault
+#         echo "$VAULT_TOKEN" > root_token-vault
 
-        printf "\n%s" \
-            "Unseal key: $UNSEAL_KEY" \
-            "Root token: $VAULT_TOKEN" \
-            ""
-    else
-        UNSEAL_KEY=$unseal_key
-        vault_srv operator unseal "$UNSEAL_KEY"
-    fi
-}
+#         printf "\n%s" \
+#             "Unseal key: $UNSEAL_KEY" \
+#             "Root token: $VAULT_TOKEN" \
+#             ""
+#     else
+#         UNSEAL_KEY=$unseal_key
+#         vault_srv operator unseal "$UNSEAL_KEY"
+#     fi
+# }
 
 # function setup_admin {
 #     vault_srv login "$VAULT_TOKEN"
@@ -302,7 +300,7 @@ command=$1
 
 shift 1
 
-while getopts ":n:p:c:u" o; do
+while getopts ":n:p:c:" o; do
     case "${o}" in
         n)
             echo "Node ID: ${OPTARG}"
@@ -316,10 +314,6 @@ while getopts ":n:p:c:u" o; do
             echo "Cluster Name: ${OPTARG}"
 	        cluster_name=(${OPTARG})
             ;;
-        u)
-            echo "Unseal Key: ${OPTARG}"
-            unseal_key=${OPTARG}
-            ;;
         *)
             usage
 
@@ -331,15 +325,12 @@ done
 shift $((OPTIND-1))
 
 vault_version=${VAULT_VERSION:-"1.19.2"}
-terraform_version=${TERRAFORM_VERSION:-"1.11.3"}
 
 echo "Vault version: $vault_version"
-echo "Terraform version: $terraform_version"
 sleep 2 # Added for human readability
 
 if [ $command == "create" ]; then
 	install_deps "vault" $vault_version
-    install_deps "terraform" $terraform_version
 
 	if [ -z "$node_id" ] || [ -z "$cluster_name" ] || [ -z "$peer_addrs" ]; then
 		usage
@@ -349,8 +340,8 @@ if [ $command == "create" ]; then
 
 	mkdir -p $vault_config
 
-	mkdir -p $data_folder
-	chown $user:$group $data_folder
+	mkdir -p $vault_data_folder
+	chown $user:$group $vault_data_folder
 
 	rm -f $vault_config_file
 
@@ -371,7 +362,6 @@ if [ $command == "create" ]; then
 	sleep 5 # Waiting for Vault server to start
 elif [ $command == "dev" ]; then
 	install_deps "vault" $vault_version
-    install_deps "terraform" $terraform_version
 
     echo " "
     echo " "
@@ -382,7 +372,7 @@ elif [ $command == "dev" ]; then
     echo "$ export VAULT_TOKEN=root"
 
     exit 1
-elif [ $command == "unseal" ]; then
+elif [ $command == "tls" ]; then
 	if [ -z "$node_id" ] || [ -z "$cluster_name" ] || [ -z "$peer_addrs" ]; then
 		usage
 
@@ -399,11 +389,14 @@ elif [ $command == "unseal" ]; then
 
 	chown $user:$group $vault_config_file
 
-    unseal_server "$@"
+	start_service "$@"
+
+#    unseal_server "$@"
 elif [ $command == "destroy" ]; then
-	rm -f $vault_config_file
-	rm -f $service_file
-	rm -f $pidfile
+	rm -f ${vault_config_file}
+	rm -f ${service_file}
+	rm -f ${pidfile}
+	rm -rf ${vault_data_folder}/*
 
 	stop_service "$@"
 else
