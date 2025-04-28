@@ -34,11 +34,12 @@ function usage {
 	# Display Help
 	echo "Install script for Vault Cluster"
 	echo
-	echo "Syntax: $script_name create|dev|destroy [-n|p|u]"
+	echo "Syntax: $script_name create|setup|dev|destroy [-n|p|u]"
 	echo "Create options:"
 	echo "  -n     Node name."
     echo "  -p     Peer URLs."
     echo "  -u     Unseal Key."
+	echo "Setup options: none"
 	echo "Dev options: none"
 	echo "Destroy options: none"
 	echo "ENV vars: "
@@ -246,21 +247,7 @@ function setup_server {
 
 if [ -z "$1" ]; then usage; fi
 
-case "$1" in
-	create)
-	    command="create"
-	    ;;
-	dev)
-	    command="dev"
-	    ;;
-	destroy)
-	    command="destroy"
-	    ;;
-	/?)
-	    # Invalid option
-            echo "Error: Invalid option"
-	    exit;;
-esac
+command=$1
 
 shift 1
 
@@ -295,23 +282,11 @@ echo "Vault version: $vault_version"
 echo "Terraform version: $terraform_version"
 sleep 2 # Added for human readability
 
-if [ $command != "destroy" ]; then
+if [ $command == "create" ]; then
 	install_deps "vault" $vault_version
     install_deps "terraform" $terraform_version
 
-	if [ $command == "dev" ]; then
-        echo " "
-        echo " "
-		echo "Vault installed. Run server: "
-        echo " "
-        echo "$ vault server -dev -dev-root-token-id root &"
-        echo "$ export VAULT_ADDR=http://127.0.0.1:8200"
-        echo "$ export VAULT_TOKEN=root"
-
-		exit 1
-	fi
-
-	if [ $command == "create" ] && ([ -z "$node_id" ] || [ -z "$peer_addrs" ]); then
+	if [ -z "$node_id" ] || [ -z "$peer_addrs" ]; then
 		usage
 
 		exit 1
@@ -339,12 +314,27 @@ if [ $command != "destroy" ]; then
 	start_service "$@"
 
 	sleep 5 # Waiting for Vault server to start
+elif [ $command == "dev" ]; then
+	install_deps "vault" $vault_version
+    install_deps "terraform" $terraform_version
 
+    echo " "
+    echo " "
+    echo "Vault installed. Run server: "
+    echo " "
+    echo "$ vault server -dev -dev-root-token-id root &"
+    echo "$ export VAULT_ADDR=http://127.0.0.1:8200"
+    echo "$ export VAULT_TOKEN=root"
+
+    exit 1
+elif [ $command == "setup" ]; then
     setup_server "$@"
-else
+elif [ $command == "destroy" ]; then
 	rm -f $vault_config_file
 	rm -f $service_file
 	rm -f $pidfile
 
 	stop_service "$@"
+else
+    usage
 fi
