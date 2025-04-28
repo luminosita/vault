@@ -84,9 +84,9 @@ function create_peers {
 		peers+=$(cat <<EOF
     retry_join {
         leader_api_addr             = "$peer"
-        leader_ca_cert_file         = "$vault_config/certs/vault_ca.pem"
-        leader_client_cert_file     = "$vault_config/certs/vault.crt"
-        leader_client_key_file      = "$vault_config/certs/vault.key"
+        leader_ca_cert_file         = "$vault_config/certs/vault-node.ca"
+        leader_client_cert_file     = "$vault_config/certs/vault-node.crt"
+        leader_client_key_file      = "$vault_config/certs/vault-node.key"
     }
 EOF
 		)
@@ -115,9 +115,9 @@ cluster_name            = "Belgrade"
 listener "tcp" {
    address              = "0.0.0.0:8200"
    tls_disable          = false
-   tls_cert_file        = "$vault_config/certs/vault.crt"
-   tls_key_file         = "$vault_config/certs/vault.key"
-   tls_client_ca_file   = "$vault_config/certs/vault_ca.pem"
+   tls_cert_file        = "$vault_config/certs/vault-node.crt"
+   tls_key_file         = "$vault_config/certs/vault-node.key"
+   tls_client_ca_file   = "$vault_config/certs/vault-node.ca"
 #   tls_cipher_suites    = "TLS_TEST_128_GCM_SHA256,TLS_TEST_128_GCM_SHA256,TLS_TEST20_POLY1305,TLS_TEST_256_GCM_SHA384,TLS_TEST20_POLY1305,TLS_TEST_256_GCM_SHA384"
 }
 

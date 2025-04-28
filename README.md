@@ -1,14 +1,24 @@
 ### Install Vault in Alpine LXC
 
+#### Vault Temp Server
+
+```bash
+$ sudo su -c "bash <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) dev" root
+```
+
+, to specify Vault and Terraform versions use
+
+```bash
+$ sudo su -c "TERRAFORM_VERSION=1.11.3 VAULT_VERSION=1.19.2 bash <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) dev" root
+```
+
 #### Vault Server
 
 ```bash
 $ sudo su -c "bash <(wget -O - https://github.com/luminosita/vault/raw/refs/heads/main/scripts/install.sh) create -n Noa -p https://172.16.20.12:8200 -p https://172.16.20.13:8200" root
 ```
 
-sudo TERRAFORM_VERSION=1.9.5 bash install.sh dev
-
-It will install clustered Vault server version 1.19.2 and create `raft` data node `Noa`
+It will install clustered Vault server and create `raft` data node `Noa`
 
 #### Initial Setup
 
