@@ -100,6 +100,8 @@ $ vault operator unseal <First Node Unseal Key>
 Once cluster is fully deployed revoke `Initial Root Token`
 
 ```bash
+$ vault write auth/userpass/users/<admin username> token_policies="admin_policy"
+Password: 
 $ vault token revoke <First Node Root Token>
 ```
 
