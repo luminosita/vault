@@ -52,12 +52,19 @@ $ export VAULT_TOKEN=<First Node Root Token>
 $ vault operator unseal <First Node Unseal Key>
 ```
 
-### Terraform
+#### Validate Cluster
 
-Run on a separate machine
+List all Vault nodes
 
 ```bash
-$ export TF_VAR_vault_endpoint=http://<node ip>:8200
+$ vault operator raft list-peers
+```
+
+### Terraform
+
+Run on a separate machine. Create `vault.auto.tfvars` and set proper Vault endpoint
+
+```bash
 $ export TF_VAR_vault_token=<First Node Root Token>
 $ terraform init
 $ terraform plan
@@ -100,25 +107,19 @@ $ vault operator unseal <First Node Unseal Key>
 Once cluster is fully deployed revoke `Initial Root Token`
 
 ```bash
-$ vault write auth/userpass/users/<admin username> token_policies="admin_policy"
-Password: 
+$ vault write auth/userpass/users/<admin username> token_policies="admin_policy" password=<admin password>
 $ vault token revoke <First Node Root Token>
 ```
 
-#### Login with Admin User
+#### Cleanup
+
+We need to delete `Unseal Key` from the history
+
+For all other cluster nodes
 
 ```bash
-$ vault login -method userpass username=admin
-```
-
-#### Secrets
-
-```bash
-$ vault secrets enable -path=secret kv-v2
-$ vault kv put secret/laza pera=mika
-$ vault kv get --format=json secret/laza | jq '.data.data'
-$ vault kv list secret/
-$ vault kv delete secret/laza
+$ unset VAULT_TOKEN
+$ rm .ash_history
 ```
 
 ### Recreate Root Token (requires `Unseal Key`)
@@ -144,6 +145,24 @@ Complete         true
 Encoded Token    NWUFbxkGFXwdNXY0dBxUb2YsKQoCGwYdMFE
 
 $ vault operator generate-root -decode=NWUFbxkGFXwdNXY0dBxUb2YsKQoCGwYdMFE -otp FKOWLuLKGo2N5uaXUCEgjjtOb4
+```
+
+### Playground
+
+#### Login with Admin User
+
+```bash
+$ vault login -method userpass username=admin
+```
+
+#### Secrets
+
+```bash
+$ vault secrets enable -path=secret kv-v2
+$ vault kv put secret/laza pera=mika
+$ vault kv get --format=json secret/laza | jq '.data.data'
+$ vault kv list secret/
+$ vault kv delete secret/laza
 ```
 
 ### AppRole Authentication Method

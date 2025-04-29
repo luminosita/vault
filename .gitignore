@@ -3,7 +3,6 @@
 .terraform.lock.hcl
 terraform.tfstate*
 
-*.auto.tfvars
 *.bak
 
 tmp/

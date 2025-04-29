@@ -8,4 +8,6 @@
 - [ ] Kubernete Secrets Injector 
 - [ ] AppRole Authentication
 
+- [ ] Setup cluster script to avoid writing tokens and keys in history
+
 
