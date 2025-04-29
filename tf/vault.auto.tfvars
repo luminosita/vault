@@ -1,5 +1,5 @@
 vault = {
-  endpoint = "http://172.16.20.11:8200"
+  endpoint = "https://172.16.20.11:8200"
 }
 
 ca = {
