@@ -163,6 +163,7 @@ $ vault kv put secret/laza pera=mika
 $ vault kv get --format=json secret/laza | jq '.data.data'
 $ vault kv list secret/
 $ vault kv delete secret/laza
+$ vault read -format=json sys/mounts    #read all mounts
 ```
 
 ### AppRole Authentication Method
